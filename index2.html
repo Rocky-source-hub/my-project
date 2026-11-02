@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIO Performance Dashboard v2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0b1220;--card:#131c2e;--line:#22304a;--text:#e8eefc;--muted:#8a9bb8;--accent:#f5b53d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:radial-gradient(circle at top,#14213d,var(--bg) 60%);color:var(--text);min-height:100vh;padding:20px}
+h1{font-size:1.5rem}h1 span{color:var(--accent)}
+h2{font-size:1rem;margin-bottom:12px}
+.sub{color:var(--muted);font-size:.85rem}
+.grid{display:grid;gap:16px;margin-bottom:16px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.label{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+.value{font-size:2rem;font-weight:700;margin-top:6px}
+.bar-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 16px}
+.tabs{display:flex;background:#0e1626;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tabs button{background:none;border:0;color:var(--muted);padding:9px 16px;font-size:.9rem;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#1a1200;font-weight:700}
+input,select,button.btn{background:#0e1626;border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:10px;font-size:.9rem}
+button.btn{cursor:pointer}button.btn:hover{border-color:var(--accent)}
+button.gold{background:var(--accent);color:#1a1200;font-weight:700;border-color:var(--accent)}
+button.danger:hover{border-color:#ef4444;color:#ef4444}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase}
+tr.row{cursor:pointer}tr.row:hover,tr.sel{background:#1a2740}
+.badge{padding:3px 10px;border-radius:99px;font-size:.78rem;font-weight:600;color:#fff}
+.Excellent{background:#22c55e}.Good{background:#3b82f6}.Satisfactory{background:#f59e0b}.Poor{background:#ef4444}
+.pbar{height:8px;border-radius:9px;background:#0e1626;overflow:hidden;min-width:70px}
+.pbar i{display:block;height:100%;border-radius:9px}
+.sl{display:grid;grid-template-columns:1fr 110px 24px;gap:10px;align-items:center;margin:8px 0;font-size:.85rem}
+.sl small{color:var(--muted)}
+input[type=range]{accent-color:var(--accent);width:100%;padding:0}
+input[type=range]:disabled{opacity:.4}
+.big{font-size:2.4rem;font-weight:800}
+.note{color:var(--muted);font-size:.8rem;margin-top:8px}
+.toolbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<h1>🛡️ FIO <span>Performance</span> Dashboard <span style="font-size:.9rem">v2 · records</span></h1>
+<div class="sub">Weekly records are saved in this browser. Monthly and yearly views are calculated from them, so nothing extra is stored.</div>
+
+<div class="bar-controls">
+  <div class="tabs" id="tabs">
+    <button data-v="week" class="on">Weekly</button>
+    <button data-v="month">Monthly</button>
+    <button data-v="year">Yearly</button>
+  </div>
+  <select id="periodSel"></select>
+  <input type="date" id="newDate" title="Pick any date inside the new week">
+  <button class="btn gold" id="btnNew">+ New week</button>
+  <button class="btn" id="btnExport">Export backup</button>
+  <button class="btn" id="btnImport">Import backup</button>
+  <input type="file" id="fileIn" accept=".json" style="display:none">
+</div>
+
+<div class="grid cards" id="cards"></div>
+
+<div class="grid two">
+  <div class="card"><h2>🏆 Leaderboard: <span id="perLabel"></span></h2><canvas id="bar"></canvas></div>
+  <div class="card"><h2>🎯 KPI Profile: <span id="selName" style="color:var(--accent)"></span></h2><canvas id="radar"></canvas></div>
+</div>
+
+<div class="grid">
+  <div class="card"><h2>📈 Trend over time: <span id="trendName" style="color:var(--accent)"></span> vs group average</h2><canvas id="trend" style="max-height:300px"></canvas></div>
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <h2>📋 All FIOs</h2>
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="Search FIO code...">
+      <select id="filter"><option value="">All ratings</option><option>Excellent</option><option>Good</option><option>Satisfactory</option><option>Poor</option></select>
+    </div>
+    <table><thead><tr><th>#</th><th>FIO</th><th>Score</th><th></th><th>Rating</th></tr></thead><tbody id="tbody"></tbody></table>
+  </div>
+  <div class="card">
+    <h2>✏️ Score Editor: <span id="selName2"></span></h2>
+    <div class="big" id="bigScore"></div>
+    <div id="sliders" style="margin-top:12px"></div>
+    <div class="note" id="editNote"></div>
+    <div class="toolbar" style="margin-top:12px">
+      <button class="btn danger" id="btnDelete">Delete this week</button>
+      <button class="btn" id="btnDemo">Add demo history</button>
+      <button class="btn danger" id="btnReset">Reset all</button>
+    </div>
+    <div class="note" id="storeInfo"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- 1. Fixed settings ---------- */
+const KPIS=[["Intelligence Quality","Accuracy and reliability of reports",.20],["Timeliness","Speed of reporting",.15],["Coverage","Consistency of submissions",.10],["Relevance","Usefulness to operations",.15],["Compliance","SOP adherence",.10],["Confidentiality","No exposure of identity",.15],["Responsiveness","Reaction to instructions",.10],["Safety Discipline","Operational safety compliance",.05]];
+const BASE={PANTHA:[4,3,4,5,4,5,3,4],AZILA:[2,3,2,1,1,1,3,3],BINGO:[5,5,5,5,5,5,5,5],ALPHA:[1,1,1,1,1,1,1,1],KANJAGA:[1,2,1,2,1,3,2,1],JACK:[1,1,2,1,2,1,3,1]};
+const KEY="fio_records_v1";
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/* ---------- 2. Date helpers (ISO weeks) ---------- */
+function isoWeekUTC(d){                       // d is a UTC date
+  const t=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));
+  const day=t.getUTCDay()||7;
+  t.setUTCDate(t.getUTCDate()+4-day);          // move to the Thursday of this week
+  const y=t.getUTCFullYear();
+  const w=Math.ceil(((t-Date.UTC(y,0,1))/86400000+1)/7);
+  return y+"-W"+String(w).padStart(2,"0");
+}
+function isoWeek(local){ return isoWeekUTC(new Date(Date.UTC(local.getFullYear(),local.getMonth(),local.getDate()))); }
+function weekMonday(key){
+  const p=key.split("-W"), y=+p[0], w=+p[1];
+  const jan4=new Date(Date.UTC(y,0,4));
+  const day=jan4.getUTCDay()||7;
+  const m=new Date(jan4);
+  m.setUTCDate(jan4.getUTCDate()-day+1+(w-1)*7);
+  return m;
+}
+function weekThursday(key){ const m=weekMonday(key); m.setUTCDate(m.getUTCDate()+3); return m; }
+function periodOf(weekKey,v){                  // which week/month/year a week belongs to
+  if(v==="week") return weekKey;
+  const t=weekThursday(weekKey), y=t.getUTCFullYear();
+  if(v==="year") return String(y);
+  return y+"-"+String(t.getUTCMonth()+1).padStart(2,"0");
+}
+function periodText(p,v){
+  if(v==="year") return p;
+  if(v==="month"){ const a=p.split("-"); return MONTHS[+a[1]-1]+" "+a[0]; }
+  const m=weekMonday(p);
+  return p+" (from "+m.getUTCDate()+" "+MONTHS[m.getUTCMonth()]+")";
+}
+
+/* ---------- 3. Storage ---------- */
+function seed(){ const r={}; r[isoWeek(new Date())]=JSON.parse(JSON.stringify(BASE)); return r; }
+function valid(d){
+  if(!d||typeof d!=="object") return false;
+  for(const k in d){
+    if(!/^\d{4}-W\d{2}$/.test(k)) return false;
+    for(const f in d[k]){
+      const s=d[k][f];
+      if(!Array.isArray(s)||s.length!==KPIS.length) return false;
+      for(const v of s){ if(typeof v!=="number"||v<1||v>5) return false; }
+    }
+  }
+  return Object.keys(d).length>0;
+}
+function load(){
+  try{ const t=localStorage.getItem(KEY); if(t){ const d=JSON.parse(t); if(valid(d)) return d; } }catch(e){}
+  return seed();
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(records)); }catch(e){ alert("Could not save in this browser. Use Export backup to keep your data."); } }
+
+let records=load(), view="week", period="", selected="PANTHA", FIOS={}, barChart, radarChart, trendChart;
+
+/* ---------- 4. Scoring (same as v1) ---------- */
+const pct=s=>s.reduce((t,v,i)=>t+v*KPIS[i][2],0)/5*100;
+const rating=p=>p>=85?"Excellent":p>=70?"Good":p>=50?"Satisfactory":"Poor";
+const colour=r=>({Excellent:"#22c55e",Good:"#3b82f6",Satisfactory:"#f59e0b",Poor:"#ef4444"})[r];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+
+/* ---------- 5. Records -> weekly / monthly / yearly ---------- */
+function fioNames(){ const s={}; for(const k in records) for(const f in records[k]) s[f]=1; return Object.keys(s); }
+function periods(v){ const s={}; for(const k in records) s[periodOf(k,v)]=1; return Object.keys(s).sort(); }
+function dataFor(v,p){                         // average the weeks that fall inside the period
+  const weeks=Object.keys(records).filter(k=>periodOf(k,v)===p);
+  const out={};
+  for(const f of fioNames()){
+    const sums=KPIS.map(()=>0); let n=0;
+    for(const k of weeks){ const s=records[k][f]; if(s){ s.forEach((x,i)=>sums[i]+=x); n++; } }
+    if(n) out[f]=sums.map(x=>Math.round(x/n*100)/100);
+  }
+  return out;
+}
+function ranked(){ return Object.keys(FIOS).map(n=>({n:n,p:pct(FIOS[n])})).sort((a,b)=>b.p-a.p); }
+
+/* ---------- 6. Rendering ---------- */
+function renderControls(){
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
+  const ps=periods(view);
+  document.getElementById("periodSel").innerHTML=ps.slice().reverse().map(p=>'<option value="'+p+'"'+(p===period?" selected":"")+'>'+periodText(p,view)+'</option>').join("");
+  document.getElementById("perLabel").textContent=periodText(period,view);
+  const n=Object.keys(records).length, kb=(JSON.stringify(records).length/1024).toFixed(1);
+  document.getElementById("storeInfo").textContent="Stored: "+n+" week(s), about "+kb+" KB. Browsers allow about 5,000 KB, so there is room for many years.";
+}
+function renderCards(){
+  const r=ranked(); if(!r.length){ document.getElementById("cards").innerHTML=""; return; }
+  const avg=r.reduce((t,x)=>t+x.p,0)/r.length, poor=r.filter(x=>rating(x.p)==="Poor").length;
+  const items=[["FIOs in period",r.length],["Average Score",avg.toFixed(1)+"%"],["Top Performer",esc(r[0].n)],["Rated Poor",poor]];
+  document.getElementById("cards").innerHTML=items.map(i=>'<div class="card"><div class="label">'+i[0]+'</div><div class="value">'+i[1]+'</div></div>').join("");
+}
+function renderTable(){
+  const q=document.getElementById("search").value.toLowerCase(), f=document.getElementById("filter").value;
+  document.getElementById("tbody").innerHTML=ranked().map((x,i)=>({n:x.n,p:x.p,i:i,r:rating(x.p)}))
+   .filter(x=>x.n.toLowerCase().includes(q)&&(!f||x.r===f))
+   .map(x=>'<tr class="row'+(x.n===selected?' sel':'')+'" data-n="'+esc(x.n)+'"><td>'+(x.i+1)+'</td><td><b>'+esc(x.n)+'</b></td><td>'+x.p.toFixed(0)+'%</td><td><div class="pbar"><i style="width:'+x.p+'%;background:'+colour(x.r)+'"></i></div></td><td><span class="badge '+x.r+'">'+x.r+'</span></td></tr>').join("");
+}
+function renderCharts(){
+  const r=ranked();
+  if(barChart) barChart.destroy();
+  barChart=new Chart(document.getElementById("bar"),{type:"bar",data:{labels:r.map(x=>x.n),datasets:[{data:r.map(x=>+x.p.toFixed(1)),backgroundColor:r.map(x=>colour(rating(x.p))),borderRadius:8}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:"#8a9bb8"},grid:{color:"#22304a"}},x:{ticks:{color:"#e8eefc"},grid:{display:false}}}}});
+  if(radarChart) radarChart.destroy();
+  radarChart=new Chart(document.getElementById("radar"),{type:"radar",data:{labels:KPIS.map(k=>k[0]),datasets:[{data:FIOS[selected]||[],backgroundColor:"rgba(245,181,61,.25)",borderColor:"#f5b53d",pointBackgroundColor:"#f5b53d"}]},
+    options:{plugins:{legend:{display:false}},scales:{r:{min:0,max:5,ticks:{stepSize:1,color:"#8a9bb8",backdropColor:"transparent"},grid:{color:"#22304a"},angleLines:{color:"#22304a"},pointLabels:{color:"#e8eefc",font:{size:11}}}}}});
+  renderTrend();
+}
+function renderTrend(){
+  const ps=periods(view), mine=[], grp=[];
+  for(const p of ps){
+    const d=dataFor(view,p), names=Object.keys(d);
+    mine.push(d[selected]?+pct(d[selected]).toFixed(1):null);
+    grp.push(names.length?+(names.reduce((t,n)=>t+pct(d[n]),0)/names.length).toFixed(1):null);
+  }
+  document.getElementById("trendName").textContent=selected;
+  if(trendChart) trendChart.destroy();
+  trendChart=new Chart(document.getElementById("trend"),{type:"line",
+    data:{labels:ps.map(p=>periodText(p,view)),datasets:[
+      {label:selected,data:mine,borderColor:"#f5b53d",backgroundColor:"#f5b53d",tension:.3,spanGaps:true},
+      {label:"Group average",data:grp,borderColor:"#3b82f6",backgroundColor:"#3b82f6",borderDash:[6,5],tension:.3,spanGaps:true}]},
+    options:{plugins:{legend:{labels:{color:"#e8eefc"}}},scales:{y:{min:0,max:100,ticks:{color:"#8a9bb8"},grid:{color:"#22304a"}},x:{ticks:{color:"#8a9bb8"},grid:{display:false}}}}});
+}
+function showScore(){
+  const s=FIOS[selected]; if(!s){ document.getElementById("bigScore").innerHTML=""; return; }
+  const p=pct(s), r=rating(p);
+  document.getElementById("bigScore").innerHTML=p.toFixed(0)+'% <span class="badge '+r+'" style="font-size:.9rem">'+r+'</span>';
+}
+function renderEditor(){
+  document.getElementById("selName").textContent=selected;
+  document.getElementById("selName2").textContent=selected;
+  showScore();
+  const s=FIOS[selected]||[], can=(view==="week");
+  document.getElementById("sliders").innerHTML=KPIS.map((k,i)=>'<div class="sl"><div>'+k[0]+'<br><small>'+k[1]+' - '+Math.round(k[2]*100)+'%</small></div><input type="range" min="1" max="5" step="'+(can?1:0.01)+'" value="'+(s[i]||1)+'" '+(can?'':'disabled')+' data-i="'+i+'"><b id="v'+i+'">'+(s[i]!==undefined?s[i]:"")+'</b></div>').join("");
+  document.getElementById("editNote").textContent=can?"Changes are saved automatically for this week.":"Monthly and yearly figures are averages of the weekly records. Switch to Weekly to edit scores.";
+  document.getElementById("btnDelete").style.display=can?"":"none";
+}
+
+/* ---------- 7. Actions ---------- */
+function refresh(rebuild){
+  const ps=periods(view);
+  if(ps.indexOf(period)<0) period=ps[ps.length-1];
+  FIOS=dataFor(view,period);
+  if(!FIOS[selected]) selected=Object.keys(FIOS)[0];
+  renderControls(); renderCards(); renderTable(); renderCharts();
+  if(rebuild) renderEditor(); else showScore();
+}
+function setView(v){ view=v; const ps=periods(v); period=ps[ps.length-1]; refresh(true); }
+
+function newWeek(){
+  const v=document.getElementById("newDate").value;
+  if(!v){ alert("Pick any date inside the week you want to add."); return; }
+  const key=isoWeek(new Date(v+"T00:00:00"));
+  if(!records[key]){
+    const keys=Object.keys(records).sort(), last=keys[keys.length-1];
+    records[key]=JSON.parse(JSON.stringify(last?records[last]:BASE));   // start from the latest week, then edit
+    save();
+  }
+  view="week"; period=key; refresh(true);
+}
+function deleteWeek(){
+  if(Object.keys(records).length<2){ alert("At least one week must remain."); return; }
+  if(!confirm("Delete "+periodText(period,"week")+"? This cannot be undone.")) return;
+  delete records[period]; save(); period=""; refresh(true);
+}
+function demo(){
+  if(!confirm("Add 11 sample weeks before your oldest week so you can see trends? You can remove them with Reset all.")) return;
+  const keys=Object.keys(records).sort(), first=keys[0];
+  const m=weekMonday(first);
+  for(let k=1;k<=11;k++){
+    const d=new Date(m); d.setUTCDate(d.getUTCDate()-7*k);
+    const key=isoWeekUTC(d);
+    if(records[key]) continue;
+    const rec={};
+    for(const f in records[first]){
+      rec[f]=records[first][f].map(v=>Math.min(5,Math.max(1,v+Math.round((Math.random()-0.5)*2))));
+    }
+    records[key]=rec;
+  }
+  save(); refresh(true);
+}
+function resetAll(){
+  if(!confirm("Delete ALL saved records and start again with the original six FIOs?")) return;
+  records=seed(); save(); view="week"; period=""; refresh(true);
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(records)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="fio-records-"+new Date().toISOString().slice(0,10)+".json";
+  a.click();
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=function(){
+    try{
+      const d=JSON.parse(r.result);
+      if(!valid(d)) throw new Error("bad");
+      if(!confirm("Replace the current records with this backup?")) return;
+      records=d; save(); view="week"; period=""; refresh(true);
+    }catch(e){ alert("This file is not a valid FIO backup."); }
+  };
+  r.readAsText(file);
+}
+
+/* ---------- 8. Wiring ---------- */
+document.getElementById("tabs").addEventListener("click",e=>{ if(e.target.dataset.v) setView(e.target.dataset.v); });
+document.getElementById("periodSel").onchange=e=>{ period=e.target.value; refresh(true); };
+document.getElementById("btnNew").onclick=newWeek;
+document.getElementById("btnDelete").onclick=deleteWeek;
+document.getElementById("btnDemo").onclick=demo;
+document.getElementById("btnReset").onclick=resetAll;
+document.getElementById("btnExport").onclick=exportData;
+document.getElementById("btnImport").onclick=()=>document.getElementById("fileIn").click();
+document.getElementById("fileIn").onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=""; };
+document.getElementById("search").oninput=renderTable;
+document.getElementById("filter").onchange=renderTable;
+document.getElementById("tbody").addEventListener("click",e=>{
+  const tr=e.target.closest("tr"); if(tr&&tr.dataset.n){ selected=tr.dataset.n; refresh(true); }
+});
+document.getElementById("sliders").addEventListener("input",e=>{
+  if(view!=="week"||e.target.dataset.i===undefined) return;
+  const i=+e.target.dataset.i, v=Number(e.target.value);
+  records[period][selected][i]=v; save();
+  document.getElementById("v"+i).textContent=v;
+  refresh(false);
+});
+document.getElementById("newDate").value=new Date().toISOString().slice(0,10);
+
+setView("week");
+</script>
+</body>
+</html>
