@@ -1,0 +1,18 @@
+{% extends "occurrences/base.html" %}
+{% block content %}
+<section class="login-shell">
+  <div class="login-art"><span class="brand-mark xl">L</span><h1>Location Online Occurrence Book</h1></div>
+  <div class="card login-card">
+    <h2 class="m0">Security personnel login</h2>
+    <p class="muted">Use your username (badge number) and password.</p>
+    {% if form.errors %}<div class="notice notice-err">Please check your username and password.</div>{% endif %}
+    <form method="post" class="js-once">{% csrf_token %}
+      <div class="field"><label for="{{ form.username.id_for_label }}">Username</label>{{ form.username }}</div>
+      <div class="field"><label for="{{ form.password.id_for_label }}">Password</label>
+        <div class="pw">{{ form.password }}<button type="button" class="pw-toggle" data-target="{{ form.password.id_for_label }}">Show</button></div></div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn btn-primary block">Login</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

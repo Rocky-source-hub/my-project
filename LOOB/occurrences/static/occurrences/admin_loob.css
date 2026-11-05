@@ -1,0 +1,52 @@
+/* Makes the Administrator pages look like the rest of LOOB.
+   If the colours differ from your loob.css, change just these four values. */
+:root {
+  --loob-bar: #14213d;        /* top bar background */
+  --loob-accent: #2563eb;     /* buttons, links, active tab */
+  --loob-page: #f3f5f9;       /* page background */
+  --loob-card: #ffffff;       /* panels */
+}
+
+body { background: var(--loob-page); }
+
+#header {
+  background: var(--loob-bar);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 24px;
+}
+#header a:link, #header a:visited { color: #fff; }
+
+#branding { order: 1; flex: 0 0 auto; }
+.loob-nav { order: 2; flex: 1 1 auto; display: flex; gap: 6px; }
+#user-tools { order: 3; margin-left: auto; font-size: 13px; }
+
+.loob-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.loob-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--loob-accent); color: #fff; font-weight: 700; font-size: 18px;
+}
+.loob-brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.loob-brand-text small { opacity: .75; font-size: 11px; }
+
+.loob-nav a {
+  padding: 7px 14px; border-radius: 6px; font-size: 14px; font-weight: 500;
+  text-decoration: none; opacity: .85;
+}
+.loob-nav a:hover { background: rgba(255, 255, 255, .12); opacity: 1; }
+.loob-nav a.on { background: rgba(255, 255, 255, .18); opacity: 1; }
+
+/* panels and buttons */
+.module, #content-main .module { background: var(--loob-card); border-radius: 10px; overflow: hidden; }
+.module h2, .module caption, .inline-group h2 {
+  background: var(--loob-accent); color: #fff;
+}
+.button, input[type=submit], input[type=button], .submit-row input, a.button {
+  background: var(--loob-accent); border-radius: 6px;
+}
+.button:hover, input[type=submit]:hover { filter: brightness(1.1); }
+a:link, a:visited { color: var(--loob-accent); }
+div.breadcrumbs { background: var(--loob-accent); }

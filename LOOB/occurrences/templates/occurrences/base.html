@@ -1,0 +1,39 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOOB — Location Online Occurrence Book</title>
+<link rel="stylesheet" href="{% static 'occurrences/loob.css' %}">
+</head>
+<body class="{% if user.is_authenticated %}{% if user.is_superuser %}role-manager{% else %}role-officer{% endif %}{% else %}role-guest{% endif %}">
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{% url 'dashboard' %}">
+      <span class="brand-mark">L</span>
+      <span><strong>LOOB</strong><small>Location Online Occurrence Book</small></span>
+    </a>
+    {% if user.is_authenticated %}
+    <nav class="nav">
+      <a href="{% url 'dashboard' %}">Dashboard</a>
+      {% if user.is_superuser %}
+        <a href="{% url 'officer_roster' %}">Officers</a>
+        <a href="{% url 'admin:index' %}">Administrator</a>
+      {% elif user.officer.can_add_occurrence %}
+        <a href="{% url 'new_entry' %}">New Entry</a>
+      {% endif %}
+    </nav>
+    <div class="who">
+      <span class="role-pill">{% if user.is_superuser %}Administrator{% elif user.officer %}{{ user.officer.get_role_display }}{% else %}User{% endif %}</span>
+      <span class="who-name">{{ user.get_full_name|default:user.username }}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="btn-ghost">Logout</button></form>
+    </div>
+    {% endif %}
+  </div>
+</header>
+<main class="wrap">
+  <div class="toasts">{% for message in messages %}<div class="toast toast-{{ message.tags }}" role="status">{{ message }}<button type="button" class="toast-x" aria-label="Dismiss">×</button></div>{% endfor %}</div>
+  {% block content %}{% endblock %}
+</main>
+<footer class="foot">LOOB prototype · times shown in Africa/Accra · entries are read-only once submitted</footer>
+<script src="{% static 'occurrences/loob.js' %}"></script>
+</body></html>

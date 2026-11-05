@@ -1,0 +1,53 @@
+{% extends "occurrences/base.html" %}
+{% block content %}
+<p><a class="back" href="{% url 'dashboard' %}">← Back to dashboard</a></p>
+
+<section class="card">
+  <div class="entry-top">
+    <h2 class="m0">Occurrence LOOB-{{ record.pk|stringformat:"06d" }}</h2>
+    <span class="tag">{{ record.location.name }}</span>
+  </div>
+  <dl class="facts">
+    <div><dt>Officer</dt><dd>{{ record.officer.full_name }}</dd></div>
+    <div><dt>Badge</dt><dd>{{ record.officer.badge_number }}</dd></div>
+    <div><dt>Event time</dt><dd>{{ record.event_time|date:"d M Y, H:i:s"|default:"Not specified" }}</dd></div>
+    <div><dt>Submitted</dt><dd>{{ record.submitted_at|date:"d M Y, H:i:s" }}</dd></div>
+  </dl>
+  <h3>Occurrence text</h3>
+  <div class="prose">{{ record.details|linebreaks }}</div>
+  {% if is_manager %}<p><a class="btn btn-warn" href="{% url 'amend_occurrence' record.pk %}">Administrator: amend this entry</a></p>{% endif %}
+</section>
+
+<section class="card">
+  <h3>Additional entries</h3>
+  <div class="timeline">
+  {% for item in record.followups.all %}
+    <div class="tl-item"><div class="prose">{{ item.details|linebreaks }}</div>
+    <small class="muted">{{ item.author.full_name }} · {{ item.author.badge_number }} · {{ item.submitted_at|date:"d M Y, H:i:s" }}</small></div>
+  {% empty %}<p class="empty">No additional entries recorded.</p>{% endfor %}
+  </div>
+</section>
+
+{% if can_followup %}
+<section class="card">
+  <h3>Add follow-up entry</h3>
+  <form method="post" class="js-once">{% csrf_token %}
+    {% for f in form %}<div class="field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}</div>{% endfor %}
+    <button type="submit" class="btn btn-primary">Submit additional entry</button>
+    <p class="muted">Follow-ups are stamped with your name, badge and the time. The original text is never changed.</p>
+  </form>
+</section>
+{% endif %}
+
+{% if is_manager %}
+<section class="card card-manager"><h3>Administrator-only amendment history</h3>
+{% for log in audit_logs %}
+  <div class="tl-item"><p><strong>Edited by:</strong> {{ log.edited_by.username }} at {{ log.edited_at|date:"d M Y, H:i:s" }}</p>
+  <p><strong>Reason:</strong> {{ log.reason }}</p>
+  <details><summary>Show previous and revised text</summary>
+  <p><strong>Previous text</strong></p><div class="prose">{{ log.previous_details|linebreaks }}</div>
+  <p><strong>Revised text</strong></p><div class="prose">{{ log.revised_details|linebreaks }}</div></details></div>
+{% empty %}<p class="empty">No amendments.</p>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

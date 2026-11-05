@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'occurrences/admin_loob.css' %}">
+{% endblock %}
+
+{% block branding %}
+<a class="loob-brand" href="{% url 'dashboard' %}">
+  <span class="loob-mark">L</span>
+  <span class="loob-brand-text"><strong>LOOB</strong><small>Administrator</small></span>
+</a>
+{% endblock %}
+
+{% block nav-global %}
+<nav class="loob-nav" aria-label="Main">
+  <a href="{% url 'dashboard' %}">Dashboard</a>
+  <a href="{% url 'officer_roster' %}">Officers</a>
+  <a href="{% url 'admin:index' %}" class="on">Administrator</a>
+</nav>
+{% endblock %}

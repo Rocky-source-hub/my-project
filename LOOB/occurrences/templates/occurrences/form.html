@@ -1,0 +1,22 @@
+{% extends "occurrences/base.html" %}
+{% block content %}
+<p><a class="back" href="{% url 'dashboard' %}">← Back to dashboard</a></p>
+<section class="card narrow">
+  <h2 class="m0">New occurrence entry</h2>
+  <div class="idcard">
+    <div class="avatar big">{{ officer.full_name|slice:":1" }}</div>
+    <div><strong>{{ officer.full_name }}</strong><br><span class="muted">Badge {{ officer.badge_number }}</span></div>
+    <div class="idcard-time"><span class="muted">Will be stamped</span><br><strong id="liveClock" class="clock"></strong></div>
+  </div>
+  <form method="post" class="js-once">{% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for f in form %}
+    <div class="field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+      {% if f.name == 'details' %}<small class="counter" data-for="{{ f.id_for_label }}"></small>{% endif %}
+      {{ f.errors }}</div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Submit occurrence</button>
+  </form>
+  <p class="muted">Date and time of submission are recorded automatically. Once submitted the entry cannot be edited by you — add a follow-up instead.</p>
+</section>
+{% endblock %}

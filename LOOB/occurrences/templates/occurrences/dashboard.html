@@ -1,0 +1,109 @@
+{% extends "occurrences/base.html" %}
+{% block content %}
+
+<section class="hero">
+  <div>
+    <p class="eyebrow">{% if is_manager %}Administrator overview{% elif is_scc %}SCC live view{% else %}{{ officer.get_role_display|default:"User" }} workspace{% endif %}</p>
+    <h1>{% if is_manager %}Security Occurrence Dashboard{% elif is_scc %}Live Occurrence Monitor{% else %}Welcome{% if officer %}, {{ officer.full_name }}{% endif %}{% endif %}</h1>
+    <p class="muted"><span id="liveClock" class="clock"></span></p>
+  </div>
+  <div class="hero-actions">
+    {% if can_add %}<a class="btn btn-primary" href="{% url 'new_entry' %}">+ New Occurrence</a>{% endif %}
+    {% if is_scc %}<span class="tag tag-ok" title="This page refreshes by itself every 15 seconds">● Live</span>{% endif %}
+    {% if is_manager %}
+    <label class="switch" title="Reloads this page every 30 seconds so you always see the latest entries">
+      <input type="checkbox" id="autoRefresh"><span class="slider"></span><span>Live refresh (30s)</span>
+    </label>
+    {% endif %}
+  </div>
+</section>
+
+{% if is_manager %}
+<section class="stats">
+  <div class="stat"><span class="stat-n">{{ stats.today }}</span><span class="stat-l">Entries today</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.week }}</span><span class="stat-l">Last 7 days</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.total }}</span><span class="stat-l">All occurrences</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.officers }}</span><span class="stat-l">Active users</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.followups }}</span><span class="stat-l">Follow-ups</span></div>
+  <div class="stat stat-warn"><span class="stat-n">{{ stats.amendments }}</span><span class="stat-l">Administrator amendments</span></div>
+</section>
+{% if by_location %}
+<section class="card"><h3>Busiest locations</h3>
+  {% for row in by_location %}
+  <a class="bar-row" href="?location={{ row.location__name|urlencode }}">
+    <span class="bar-label">{{ row.location__name }}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:{{ row.pct }}%"></span></span>
+    <span class="bar-n">{{ row.n }}</span>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+{% elif is_scc %}
+<section class="stats stats-2">
+  <div class="stat"><span class="stat-n">{{ stats.all_today }}</span><span class="stat-l">Entries today</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.all_total }}</span><span class="stat-l">All occurrences</span></div>
+</section>
+{% elif officer %}
+<section class="stats stats-2">
+  <div class="stat"><span class="stat-n">{{ stats.mine_today }}</span><span class="stat-l">My entries today</span></div>
+  <div class="stat"><span class="stat-n">{{ stats.mine_total }}</span><span class="stat-l">My entries in total</span></div>
+</section>
+{% else %}
+<div class="notice">Your account has no active profile, so you can read records but not make entries. Contact the Administrator.</div>
+{% endif %}
+
+<section class="card">
+  <h3>Search occurrence records</h3>
+  <form method="get" class="search-grid" id="searchForm">
+    <div class="field span2"><label for="q">Keyword, name or badge</label>
+      <input id="q" name="q" value="{{ request.GET.q }}" placeholder="Name, badge, keyword or sentence"></div>
+    <div class="field"><label for="location">Location</label>
+      <input id="location" name="location" list="locList" value="{{ request.GET.location }}" placeholder="Any location" autocomplete="off">
+      <datalist id="locList">{% for l in locations %}<option value="{{ l.name }}">{% endfor %}</datalist></div>
+    <div class="field"><label for="date">Submission date</label>
+      <input id="date" type="date" name="date" value="{{ request.GET.date }}"></div>
+    <div class="field"><label for="time">Time (minute)</label>
+      <input id="time" type="time" name="time" value="{{ request.GET.time }}"></div>
+    <div class="field actions"><button type="submit" class="btn btn-primary">Search</button>
+      {% if searching %}<a class="btn btn-light" href="{% url 'dashboard' %}">Clear</a>{% endif %}</div>
+  </form>
+  {% if locations %}<div class="chips" aria-label="Quick location filter">
+    {% for l in locations %}<a class="chip {% if request.GET.location == l.name %}on{% endif %}" href="?location={{ l.name|urlencode }}">{{ l.name }}</a>{% endfor %}
+  </div>{% endif %}
+</section>
+
+<section class="card">
+  <div class="list-head">
+    <h3>Recorded occurrences <small class="muted">(latest 100{% if searching %} matching{% endif %})</small></h3>
+    <input id="liveFilter" class="mini-filter" type="search" placeholder="Filter this list instantly…" aria-label="Filter the list below">
+  </div>
+  <p class="muted" id="filterCount" hidden></p>
+  {% for entry in records %}
+  <article class="entry" data-search="{{ entry.pk }} {{ entry.location.name }} {{ entry.officer.full_name }} {{ entry.officer.badge_number }} {{ entry.details }}">
+    <div class="entry-top">
+      <a class="entry-id" href="{% url 'occurrence_detail' entry.pk %}">LOOB-{{ entry.pk|stringformat:"06d" }}</a>
+      <span class="tag">{{ entry.location.name }}</span>
+      <span class="when">{{ entry.submitted_at|date:"d M Y, H:i:s" }}</span>
+    </div>
+    <p class="entry-text">{{ entry.details|truncatewords:30 }}</p>
+    <div class="entry-foot">
+      <span class="by"><span class="avatar">{{ entry.officer.full_name|slice:":1" }}</span>{{ entry.officer.full_name }} <small>({{ entry.officer.badge_number }})</small></span>
+      <a href="{% url 'occurrence_detail' entry.pk %}">View full report →</a>
+    </div>
+  </article>
+  {% empty %}<p class="empty">No matching records found.</p>{% endfor %}
+</section>
+
+{% if is_scc %}
+<script>
+/* SCC real-time view: reload every 15 seconds, but never while the person is typing or the tab is hidden. */
+(function () {
+  setInterval(function () {
+    var a = document.activeElement;
+    var typing = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT');
+    if (!typing && !document.hidden) { window.location.reload(); }
+  }, 15000);
+})();
+</script>
+{% endif %}
+{% endblock %}

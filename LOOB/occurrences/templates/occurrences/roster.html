@@ -1,0 +1,16 @@
+{% extends "occurrences/base.html" %}
+{% block content %}
+<section class="hero"><div><p class="eyebrow">Administrator only</p><h1>Roster</h1>
+<p class="muted">Add, deactivate, reset or change the role and rights of users in <a href="{% url 'admin:index' %}">Administrator</a>. Deactivated users keep all their past records.</p></div></section>
+<section class="card">
+<table class="table">
+<thead><tr><th>Name</th><th>Badge</th><th>Role</th><th>Add occurrences</th><th>Add follow-ups</th><th>Entries</th><th>Status</th></tr></thead>
+<tbody>{% for o in officers %}
+<tr><td>{{ o.full_name }}</td><td>{{ o.badge_number }}</td><td>{{ o.get_role_display }}</td>
+<td>{% if o.can_add_occurrence %}Yes{% else %}No{% endif %}</td>
+<td>{% if o.can_add_followup %}Yes{% else %}No{% endif %}</td>
+<td>{{ o.entries }}</td>
+<td>{% if o.active %}<span class="tag tag-ok">Active</span>{% else %}<span class="tag tag-off">Deactivated</span>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="7" class="empty">No users yet.</td></tr>{% endfor %}</tbody></table>
+</section>
+{% endblock %}
